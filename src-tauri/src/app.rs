@@ -15,7 +15,7 @@ use std::{
 };
 use tauri::{
     command, AppHandle, CustomMenuItem, Event, Manager, Menu, SystemTray, SystemTrayEvent, Window,
-    WindowMenuEvent, Wry,
+    WindowMenuEvent, Wry, RunEvent, WindowEvent,
 };
 
 #[cfg(not(target_os = "windows"))]
@@ -184,16 +184,23 @@ pub fn handle_system_tray_event(app: &AppHandle<Wry>, e: SystemTrayEvent) {
 }
 
 /// 监听app事件
-pub fn handle_app_event(app_handle: &AppHandle<Wry>, event: Event) {
+pub fn handle_app_event(app_handle: &AppHandle<Wry>, event: RunEvent) {
     match event {
-        Event::CloseRequested { label, api, .. } => {
-            if label == "main" {
-                let app_handle = app_handle.clone();
-                app_handle.get_window(&label).unwrap().hide().unwrap();
-                // use the exposed close api, and prevent the event loop to close
-                api.prevent_close();
+        RunEvent::WindowEvent{ label,event,..}=>{
+            match event{
+                WindowEvent::CloseRequested{api,..}=>{
+                    if label == "main" {
+                        let app_handle = app_handle.clone();
+                        app_handle.get_window(&label).unwrap().hide().unwrap();
+                        // use the exposed close api, and prevent the event loop to close
+                        api.prevent_close();
+                    }
+                }
+                _=>{}
             }
         }
+        
+
         _ => {}
     }
 }
@@ -286,7 +293,7 @@ fn open_reg_key() -> std::io::Result<()> {
 
 //windows下检查是否安装了WebView2
 #[cfg(target_os = "windows")]
-pub fn webview2_is_installed() {
+pub fn webview2_is_installed(_app:&mut tauri::App) {
     if let Err(_) = open_reg_key() {
         unsafe {
             MessageBoxW(
@@ -296,6 +303,7 @@ pub fn webview2_is_installed() {
                 MB_OK,
             );
             let _ = tauri::api::shell::open(
+                &_app.shell_scope(),
                 "https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/#download-section"
                     .to_string(),
                 None,
